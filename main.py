@@ -52,40 +52,47 @@ def check_subscription(call: CallbackQuery):
         markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-# video yoki fayl saqlash
+# video yoki fayl saqlash (/add kod izoh)
 @bot.message_handler(content_types=['video','document'])
 def save_video(m):
     if m.from_user.id != ADMIN: return
     if not m.caption or not m.caption.startswith("/add "): return
-    code = m.caption.split()[1]
+
+    parts = m.caption.split(maxsplit=2)
+    if len(parts) < 2:
+        bot.reply_to(m, "❌ Kodni yozmadingiz!")
+        return
+
+    code = parts[1]   # kod (masalan, 1)
+    title = parts[2] if len(parts) > 2 else ""  # qo‘shimcha matn (agar bo‘lsa)
+
     f = m.video or m.document
     file = bot.get_file(f.file_id)
     data = bot.download_file(file.file_path)
 
-    # Fayl extensionini olish (.mp4, .mkv, .zip va hokazo)
+    # Fayl extensionini olish (.mp4, .mkv, .zip va h.k.)
     ext = os.path.splitext(file.file_path)[1] or ".mp4"
     path = f"movies/{code}{ext}"
 
     with open(path, "wb") as v: 
         v.write(data)
-    movies[code] = path
-    json.dump(movies, open("movies.json", "w"))
-    bot.reply_to(m, f"✅ Saqlandi: {code} ({path})")
+
+    # JSON faylga kod + path + title saqlanadi
+    movies[code] = {"path": path, "title": title}
+    json.dump(movies, open("movies.json", "w"), indent=2)
+
+    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title if title else 'Izoh yo‘q'}")
 
 # kod orqali video olish
 @bot.message_handler(func=lambda m: True)
 def get(m):
     code = m.text.strip()
-    if code in movies and os.path.exists(movies[code]):
-        with open(movies[code], 'rb') as v:
-            try:
-                bot.send_video(m.chat.id, v)
-            except:
-                # Agar video sifatida yuborilmasa → document sifatida yuboradi
-                v.seek(0)
-                bot.send_document(m.chat.id, v)
+    if code in movies and os.path.exists(movies[code]["path"]):
+        with open(movies[code]["path"], 'rb') as v:
+            bot.send_video(m.chat.id, v, caption=movies[code]["title"])
     else:
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
+
 
