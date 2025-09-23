@@ -61,12 +61,16 @@ def save_video(m):
     f = m.video or m.document
     file = bot.get_file(f.file_id)
     data = bot.download_file(file.file_path)
-    path = f"movies/{code}.mp4"
+
+    # Fayl extensionini olish (.mp4, .mkv, .zip va hokazo)
+    ext = os.path.splitext(file.file_path)[1] or ".mp4"
+    path = f"movies/{code}{ext}"
+
     with open(path, "wb") as v: 
         v.write(data)
     movies[code] = path
     json.dump(movies, open("movies.json", "w"))
-    bot.reply_to(m, f"✅ Saqlandi: {code}")
+    bot.reply_to(m, f"✅ Saqlandi: {code} ({path})")
 
 # kod orqali video olish
 @bot.message_handler(func=lambda m: True)
@@ -74,8 +78,14 @@ def get(m):
     code = m.text.strip()
     if code in movies and os.path.exists(movies[code]):
         with open(movies[code], 'rb') as v:
-            bot.send_video(m.chat.id, v)
+            try:
+                bot.send_video(m.chat.id, v)
+            except:
+                # Agar video sifatida yuborilmasa → document sifatida yuboradi
+                v.seek(0)
+                bot.send_document(m.chat.id, v)
     else:
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
+
