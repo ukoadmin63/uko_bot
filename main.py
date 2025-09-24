@@ -40,7 +40,7 @@ def is_subscribed(user_id):
 def check_subscription(call: CallbackQuery):
     if is_subscribed(call.from_user.id):
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(call.message.chat.id, "✅ Obuna tasdiqlandi!\n📥 Endi kino kodini kiriting...")
+        bot.send_message(call.message.chat.id, "✅ Obuna tasdiqlandi!\n📥 Endi kodni kiriting...")
     else:
         text = "❌ Siz hali kanalga obuna bo‘lmadingiz!\n👉 Avval obuna bo‘ling!"
         markup = InlineKeyboardMarkup()
@@ -51,19 +51,20 @@ def check_subscription(call: CallbackQuery):
         markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-# admin matn + havola qo‘shadi (video/rasm shart emas)
+# admin matn + havola qo‘shadi (video/rasm shart emas, URL umumiy)
 @bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
 def save_entry(m):
-    if not m.text or not m.text.startswith("/add "): return
+    if not m.text or not m.text.startswith("/add "): 
+        return
 
-    parts = m.text.split(maxsplit=3)
+    parts = m.text.split(maxsplit=3)  # 4 qism: /add, kod, nom, URL
     if len(parts) < 3:
-        bot.reply_to(m, "❌ Format: /add kod nomi https://link.com")
+        bot.reply_to(m, "❌ Format: /add kod nomi [https://link]")
         return
 
     code = parts[1]
     title = parts[2]
-    url = parts[3] if len(parts) > 3 else None
+    url = parts[3] if len(parts) > 3 else None  # URL bo‘lishi shart emas
 
     movies[code] = {"title": title, "url": url}
     json.dump(movies, open("movies.json", "w"), indent=2)
@@ -86,4 +87,3 @@ def get(m):
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
-
