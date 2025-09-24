@@ -71,6 +71,29 @@ def save_entry(m):
 
     bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}\n🔗 {url if url else 'Havola yo‘q'}")
 
+# ADMIN uchun maxsus panel
+@bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
+def admin_panel(m):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📊 Obunachilar soni", callback_data="show_subs"))
+    bot.send_message(m.chat.id, "Admin panelga xush kelibsiz 👑", reply_markup=markup)
+
+# Tugma bosilganda obunachilarni ko'rsatish
+@bot.callback_query_handler(func=lambda call: call.data == "show_subs")
+def show_subscribers(call: CallbackQuery):
+    if call.from_user.id != ADMIN:
+        bot.answer_callback_query(call.id, "❌ Siz admin emassiz")
+        return
+
+    try:
+        chat = bot.get_chat(CHANNEL_ID)
+        members_count = chat.get_members_count()  # Kanaldagi jami obunachilar soni
+
+        text = f"📊 Kanal: {CHANNEL_ID}\n👥 Umumiy obunachilar: {members_count}\n✅ Faol obunachilar: {members_count}"
+        bot.send_message(call.message.chat.id, text)
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ Xatolik: {str(e)}")
+
 # foydalanuvchi kod yuborsa
 @bot.message_handler(func=lambda m: True)
 def get(m):
