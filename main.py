@@ -3,7 +3,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 
 bot = telebot.TeleBot("8354040044:AAF4p0mQiXBX9-dlFnH-L6dC0W0DdeL7gPE")
 ADMIN = 7667567483
-CHANNEL_ID = "@welcome_rek"  # kanal username sini yoz (bot admin bo‘lishi shart)
+CHANNEL_ID = "@welcome_rek"
 
 os.makedirs("movies", exist_ok=True)
 
@@ -28,7 +28,7 @@ def welcome(m):
     markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
     bot.send_message(m.chat.id, text, reply_markup=markup)
 
-# obuna tekshirish funksiyasi
+# obuna tekshirish
 def is_subscribed(user_id):
     try:
         status = bot.get_chat_member(CHANNEL_ID, user_id).status
@@ -36,7 +36,6 @@ def is_subscribed(user_id):
     except:
         return False
 
-# "Obuna bo‘ldim" tugmasi bosilganda
 @bot.callback_query_handler(func=lambda call: call.data == "check_sub")
 def check_subscription(call: CallbackQuery):
     if is_subscribed(call.from_user.id):
@@ -52,47 +51,56 @@ def check_subscription(call: CallbackQuery):
         markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-# video yoki fayl saqlash (/add kod izoh)
+# admin video + rasm bilan qo‘shadi
 @bot.message_handler(content_types=['video','document'])
 def save_video(m):
     if m.from_user.id != ADMIN: return
     if not m.caption or not m.caption.startswith("/add "): return
 
-    parts = m.caption.split(maxsplit=2)
-    if len(parts) < 2:
-        bot.reply_to(m, "❌ Kodni yozmadingiz!")
+    parts = m.caption.split(maxsplit=4)
+    if len(parts) < 3:
+        bot.reply_to(m, "❌ Format: /add kod nomi https://link.com [rasm_url]")
         return
 
-    code = parts[1]   # kod (masalan, 1)
-    title = parts[2] if len(parts) > 2 else ""  # qo‘shimcha matn (agar bo‘lsa)
+    code = parts[1]
+    title = parts[2]
+    url = parts[3] if len(parts) > 3 else None
+    photo_url = parts[4] if len(parts) > 4 else None
 
     f = m.video or m.document
     file = bot.get_file(f.file_id)
     data = bot.download_file(file.file_path)
 
-    # Fayl extensionini olish (.mp4, .mkv, .zip va h.k.)
     ext = os.path.splitext(file.file_path)[1] or ".mp4"
     path = f"movies/{code}{ext}"
 
-    with open(path, "wb") as v: 
+    with open(path, "wb") as v:
         v.write(data)
 
-    # JSON faylga kod + path + title saqlanadi
-    movies[code] = {"path": path, "title": title}
+    movies[code] = {"path": path, "title": title, "url": url, "photo": photo_url}
     json.dump(movies, open("movies.json", "w"), indent=2)
 
-    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title if title else 'Izoh yo‘q'}")
+    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}\n🔗 {url if url else 'Havola yo‘q'}")
 
-# kod orqali video olish
+# foydalanuvchi kod yuborsa
 @bot.message_handler(func=lambda m: True)
 def get(m):
     code = m.text.strip()
     if code in movies and os.path.exists(movies[code]["path"]):
-        with open(movies[code]["path"], 'rb') as v:
-            bot.send_video(m.chat.id, v, caption=movies[code]["title"])
+        markup = None
+        if movies[code].get("url"):
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🔗 Havola", url=movies[code]["url"]))
+
+        photo = movies[code].get("photo")
+        caption = movies[code]["title"]
+
+        if photo:
+            bot.send_photo(m.chat.id, photo, caption=caption, reply_markup=markup)
+        else:
+            # Agar rasm berilmagan bo‘lsa oddiy text
+            bot.send_message(m.chat.id, caption, reply_markup=markup)
     else:
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
-
-
