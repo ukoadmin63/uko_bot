@@ -51,33 +51,21 @@ def check_subscription(call: CallbackQuery):
         markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-# admin video + rasm bilan qo‘shadi
-@bot.message_handler(content_types=['video','document'])
-def save_video(m):
-    if m.from_user.id != ADMIN: return
-    if not m.caption or not m.caption.startswith("/add "): return
+# admin matn + havola qo‘shadi (video/rasm shart emas)
+@bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
+def save_entry(m):
+    if not m.text or not m.text.startswith("/add "): return
 
-    parts = m.caption.split(maxsplit=4)
+    parts = m.text.split(maxsplit=3)
     if len(parts) < 3:
-        bot.reply_to(m, "❌ Format: /add kod nomi https://link.com [rasm_url]")
+        bot.reply_to(m, "❌ Format: /add kod nomi https://link.com")
         return
 
     code = parts[1]
     title = parts[2]
     url = parts[3] if len(parts) > 3 else None
-    photo_url = parts[4] if len(parts) > 4 else None
 
-    f = m.video or m.document
-    file = bot.get_file(f.file_id)
-    data = bot.download_file(file.file_path)
-
-    ext = os.path.splitext(file.file_path)[1] or ".mp4"
-    path = f"movies/{code}{ext}"
-
-    with open(path, "wb") as v:
-        v.write(data)
-
-    movies[code] = {"path": path, "title": title, "url": url, "photo": photo_url}
+    movies[code] = {"title": title, "url": url}
     json.dump(movies, open("movies.json", "w"), indent=2)
 
     bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}\n🔗 {url if url else 'Havola yo‘q'}")
@@ -86,21 +74,16 @@ def save_video(m):
 @bot.message_handler(func=lambda m: True)
 def get(m):
     code = m.text.strip()
-    if code in movies and os.path.exists(movies[code]["path"]):
+    if code in movies:
         markup = None
         if movies[code].get("url"):
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("🔗 Havola", url=movies[code]["url"]))
 
-        photo = movies[code].get("photo")
         caption = movies[code]["title"]
-
-        if photo:
-            bot.send_photo(m.chat.id, photo, caption=caption, reply_markup=markup)
-        else:
-            # Agar rasm berilmagan bo‘lsa oddiy text
-            bot.send_message(m.chat.id, caption, reply_markup=markup)
+        bot.send_message(m.chat.id, caption, reply_markup=markup)
     else:
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
+
