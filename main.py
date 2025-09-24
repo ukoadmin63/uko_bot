@@ -51,34 +51,32 @@ def check_subscription(call: CallbackQuery):
         markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
-# admin matn + havola qo‘shadi (video/rasm shart emas, URL umumiy)
+# ADMIN kino/video qo‘shadi
 @bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
 def save_entry(m):
     if not m.text or not m.text.startswith("/add "): 
         return
 
-    parts = m.text.split(maxsplit=3)  # 4 qism: /add, kod, nom, URL
+    parts = m.text.split(maxsplit=2)  # 3 qism: /add, kod, nom
     if len(parts) < 3:
-        bot.reply_to(m, "❌ Format: /add kod nomi [https://link]")
+        bot.reply_to(m, "❌ Format: /add kod nomi")
         return
 
     code = parts[1]
     title = parts[2]
-    url = parts[3] if len(parts) > 3 else None  # URL bo‘lishi shart emas
 
-    movies[code] = {"title": title, "url": url}
+    movies[code] = {"title": title}
     json.dump(movies, open("movies.json", "w"), indent=2)
 
-    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}\n🔗 {url if url else 'Havola yo‘q'}")
+    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}")
 
-# ADMIN uchun maxsus panel
+# ADMIN panel
 @bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
 def admin_panel(m):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("📊 Obunachilar soni", callback_data="show_subs"))
     bot.send_message(m.chat.id, "Admin panelga xush kelibsiz 👑", reply_markup=markup)
 
-# Tugma bosilganda obunachilarni ko'rsatish
 @bot.callback_query_handler(func=lambda call: call.data == "show_subs")
 def show_subscribers(call: CallbackQuery):
     if call.from_user.id != ADMIN:
@@ -87,26 +85,20 @@ def show_subscribers(call: CallbackQuery):
 
     try:
         chat = bot.get_chat(CHANNEL_ID)
-        members_count = chat.get_members_count()  # Kanaldagi jami obunachilar soni
-
+        members_count = chat.get_members_count()
         text = f"📊 Kanal: {CHANNEL_ID}\n👥 Umumiy obunachilar: {members_count}\n✅ Faol obunachilar: {members_count}"
         bot.send_message(call.message.chat.id, text)
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ Xatolik: {str(e)}")
 
-# foydalanuvchi kod yuborsa
+# foydalanuvchi kodi
 @bot.message_handler(func=lambda m: True)
-def get(m):
+def get_movie(m):
     code = m.text.strip()
     if code in movies:
-        markup = None
-        if movies[code].get("url"):
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🔗 Havola", url=movies[code]["url"]))
-
-        caption = movies[code]["title"]
-        bot.send_message(m.chat.id, caption, reply_markup=markup)
+        bot.send_message(m.chat.id, movies[code]["title"])
     else:
         bot.reply_to(m, "❌ Kod topilmadi")
 
 bot.infinity_polling()
+
