@@ -2,7 +2,7 @@ import telebot, os, json
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 bot = telebot.TeleBot("8354040044:AAF4p0mQiXBX9-dlFnH-L6dC0W0DdeL7gPE")
-ADMIN = 7667567483
+ADMIN = 8365701342
 CHANNEL_ID = "@welcome_rek"
 
 os.makedirs("movies", exist_ok=True)
