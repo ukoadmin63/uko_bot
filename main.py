@@ -1,104 +1,62 @@
-import telebot, os, json
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+import telebot
+import json
+import os
 
-bot = telebot.TeleBot("8354040044:AAF4p0mQiXBX9-dlFnH-L6dC0W0DdeL7gPE")
-ADMIN = 7667567483
-CHANNEL_ID = "@welcome_rek"
+API_KEY = "8354040044:AAF4p0mQiXBX9-dlFnH-L6dC0W0DdeL7gPE"
+bot = telebot.TeleBot(API_KEY)
 
-os.makedirs("movies", exist_ok=True)
+# Admin ID
+ADMIN = 7667567483  # o'zgartiring
 
-try:
-    movies = json.load(open("movies.json"))
-except:
-    movies = {}
+# Kino fayllari saqlanadigan json
+KINO_FILE = "movies.json"
 
-# /start komandasi
-@bot.message_handler(commands=['start'])
-def welcome(m):
-    text = (
-        "👋🏻 Botga xush kelibsiz!\n"
-        "✅ Ko’rsatilgan kanallarga obuna bo‘ling\n\n"
-        "Quyidagi tugmalardan foydalaning 👇"
-    )
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("📥 Kanal", url="https://t.me/welcome_rek"),
-        InlineKeyboardButton("🧑🏻‍💻 Admin", url="https://t.me/saric_mee")
-    )
-    markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
-    bot.send_message(m.chat.id, text, reply_markup=markup)
+# Agar json mavjud bo'lmasa yaratamiz
+if not os.path.exists(KINO_FILE):
+    with open(KINO_FILE, "w", encoding="utf-8") as f:
+        json.dump([], f, ensure_ascii=False, indent=4)
 
-# obuna tekshirish
-def is_subscribed(user_id):
+# Funktsiya: kino qo'shish
+def add_kino(title, link):
+    with open(KINO_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data.append({"title": title, "link": link})
+    with open(KINO_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+# Start komanda
+@bot.message_handler(commands=["start"])
+def start(msg):
+    bot.send_message(msg.chat.id, f"Salom {msg.from_user.first_name}!\nKinoni raqam bilan olishingiz mumkin.\nMasalan: 1, 2, 3...")
+
+# Admin /add komanda
+@bot.message_handler(commands=["add"])
+def add(msg):
+    if msg.from_user.id != ADMIN:
+        bot.send_message(msg.chat.id, "Siz admin emassiz!")
+        return
+    # format: /add Kino nomi | Kino linki
     try:
-        status = bot.get_chat_member(CHANNEL_ID, user_id).status
-        return status in ["member", "administrator", "creator"]
+        text = msg.text.split("/add ",1)[1]
+        title, link = text.split("|")
+        title = title.strip()
+        link = link.strip()
+        add_kino(title, link)
+        bot.send_message(msg.chat.id, f"Kino qo'shildi:\n{title}\n{link}")
     except:
-        return False
+        bot.send_message(msg.chat.id, "Xato format! Misol:\n/add Kino nomi | https://kino_link")
 
-@bot.callback_query_handler(func=lambda call: call.data == "check_sub")
-def check_subscription(call: CallbackQuery):
-    if is_subscribed(call.from_user.id):
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(call.message.chat.id, "✅ Obuna tasdiqlandi!\n📥 Endi kodni kiriting...")
-    else:
-        text = "❌ Siz hali kanalga obuna bo‘lmadingiz!\n👉 Avval obuna bo‘ling!"
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("📥 Kanal", url="https://t.me/welcome_rek"),
-            InlineKeyboardButton("🧑🏻‍💻 Admin", url="https://t.me/saric_mee")
-        )
-        markup.add(InlineKeyboardButton("✅ Obuna bo‘ldim", callback_data="check_sub"))
-        bot.send_message(call.message.chat.id, text, reply_markup=markup)
-
-# ADMIN kino/video qo‘shadi
-@bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
-def save_entry(m):
-    if not m.text or not m.text.startswith("/add "): 
+# Foydalanuvchi raqam yozganda
+@bot.message_handler(func=lambda m: m.text.isdigit())
+def send_kino(msg):
+    index = int(msg.text) - 1  # 1 -> 0 indeksi
+    with open(KINO_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if index < 0 or index >= len(data):
+        bot.send_message(msg.chat.id, f"Kinolar soni: {len(data)}. To'g'ri raqam kiriting!")
         return
+    kino = data[index]
+    bot.send_message(msg.chat.id, f"{kino['title']}\n{kino['link']}")
 
-    parts = m.text.split(maxsplit=2)  # 3 qism: /add, kod, nom
-    if len(parts) < 3:
-        bot.reply_to(m, "❌ Format: /add kod nomi")
-        return
-
-    code = parts[1]
-    title = parts[2]
-
-    movies[code] = {"title": title}
-    json.dump(movies, open("movies.json", "w"), indent=2)
-
-    bot.reply_to(m, f"✅ Saqlandi: {code}\n📌 {title}")
-
-# ADMIN panel
-@bot.message_handler(func=lambda m: m.from_user.id == ADMIN)
-def admin_panel(m):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📊 Obunachilar soni", callback_data="show_subs"))
-    bot.send_message(m.chat.id, "Admin panelga xush kelibsiz 👑", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data == "show_subs")
-def show_subscribers(call: CallbackQuery):
-    if call.from_user.id != ADMIN:
-        bot.answer_callback_query(call.id, "❌ Siz admin emassiz")
-        return
-
-    try:
-        chat = bot.get_chat(CHANNEL_ID)
-        members_count = chat.get_members_count()
-        text = f"📊 Kanal: {CHANNEL_ID}\n👥 Umumiy obunachilar: {members_count}\n✅ Faol obunachilar: {members_count}"
-        bot.send_message(call.message.chat.id, text)
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ Xatolik: {str(e)}")
-
-# foydalanuvchi kodi
-@bot.message_handler(func=lambda m: True)
-def get_movie(m):
-    code = m.text.strip()
-    if code in movies:
-        bot.send_message(m.chat.id, movies[code]["title"])
-    else:
-        bot.reply_to(m, "❌ Kod topilmadi")
-
-bot.infinity_polling()
-
+# Botni ishga tushirish
+bot.polling(none_stop=True)
